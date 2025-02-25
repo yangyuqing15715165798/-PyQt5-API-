@@ -1,0 +1,290 @@
+import sys
+import requests
+from tabulate import tabulate
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
+                            QLabel, QLineEdit, QPushButton, QTabWidget, QGridLayout, 
+                            QTableWidget, QTableWidgetItem, QHeaderView, QFrame)
+from PyQt5.QtCore import Qt, QDateTime
+from PyQt5.QtGui import QFont, QIcon, QPixmap
+
+API_KEY = "yourapikey"
+CITY_SEARCH_URL = "https://geoapi.qweather.com/v2/city/lookup"
+WEATHER_URL = "https://devapi.qweather.com/v7/weather/now"
+FORECAST_URL = "https://devapi.qweather.com/v7/weather/3d"
+INDEX_URL = "https://devapi.qweather.com/v7/indices/1d"
+
+# 天气图标映射（可根据和风天气的图标代码进行扩展）
+WEATHER_ICONS = {
+    "晴": "sunny.png",
+    "多云": "cloudy.png",
+    "阴": "overcast.png",
+    "雨": "rain.png",
+    "雪": "snow.png",
+    # 可以根据需要添加更多映射
+}
+
+def get_city_id(city_name):
+    params = {"location": city_name, "key": API_KEY}
+    response = requests.get(CITY_SEARCH_URL, params=params)
+    if response.status_code == 200:
+        data = response.json()
+        if data["code"] == "200" and data["location"]:
+            return data["location"][0]["id"], data["location"][0]["name"]
+        else:
+            return None, f"城市搜索失败: {data.get('message', '未知错误')}"
+    return None, f"请求失败，状态码: {response.status_code}"
+
+
+def get_life_index(city_id, index_type="5"):
+    params = {
+        "location": city_id,
+        "key": API_KEY,
+        "type": index_type,
+        "lang": "zh"
+    }
+    response = requests.get(INDEX_URL, params=params)
+    if response.status_code == 200:
+        data = response.json()
+        if data["code"] == "200":
+            return data["daily"][0]["level"], data["daily"][0]["category"]
+    return "未知", "未知"
+
+
+def get_weather(city_id):
+    params = {"location": city_id, "key": API_KEY, "lang": "zh", "unit": "m"}
+    try:
+        response = requests.get(WEATHER_URL, params=params)
+        if response.status_code == 200:
+            data = response.json()
+            if data["code"] == "200":
+                return data["now"], None
+            else:
+                return None, f"错误: {data['code']} - {data['message']}"
+        else:
+            return None, f"请求失败，状态码: {response.status_code}"
+    except Exception as e:
+        return None, f"请求异常: {e}"
+
+
+def get_3day_forecast(city_id):
+    params = {"location": city_id, "key": API_KEY, "lang": "zh", "unit": "m"}
+    response = requests.get(FORECAST_URL, params=params)
+    if response.status_code == 200:
+        data = response.json()
+        if data["code"] == "200":
+            return data["daily"], None
+        else:
+            return None, f"错误: {data['code']} - {data['message']}"
+    else:
+        return None, f"请求失败，状态码: {response.status_code}"
+
+
+class WeatherApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("天气查询应用")
+        self.setMinimumSize(800, 600)
+        
+        # 主窗口部件
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+        
+        # 主布局
+        self.main_layout = QVBoxLayout(self.central_widget)
+        
+        # 搜索区域
+        self.setup_search_area()
+        
+        # 标签页
+        self.tabs = QTabWidget()
+        self.main_layout.addWidget(self.tabs)
+        
+        # 当前天气标签页
+        self.current_weather_tab = QWidget()
+        self.tabs.addTab(self.current_weather_tab, "实时天气")
+        self.current_weather_layout = QVBoxLayout(self.current_weather_tab)
+        
+        # 天气信息表格
+        self.weather_table = QTableWidget()
+        self.weather_table.setColumnCount(2)
+        self.weather_table.setHorizontalHeaderLabels(["项目", "值"])
+        self.weather_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.current_weather_layout.addWidget(self.weather_table)
+        
+        # 预报标签页
+        self.forecast_tab = QWidget()
+        self.tabs.addTab(self.forecast_tab, "未来3天预报")
+        self.forecast_layout = QVBoxLayout(self.forecast_tab)
+        
+        # 预报表格
+        self.forecast_table = QTableWidget()
+        self.forecast_table.setColumnCount(5)
+        self.forecast_table.setHorizontalHeaderLabels(["日期", "白天天气", "夜间天气", "温度范围", "风速"])
+        self.forecast_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.forecast_layout.addWidget(self.forecast_table)
+        
+        # 状态栏
+        self.statusBar().showMessage("准备就绪")
+        
+        # 样式设置
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #f0f0f0;
+            }
+            QTableWidget {
+                background-color: white;
+                border-radius: 5px;
+            }
+            QTableWidget::item {
+                padding: 5px;
+            }
+            QLineEdit {
+                padding: 8px;
+                border-radius: 4px;
+                border: 1px solid #ccc;
+            }
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QTabWidget::pane {
+                border: 1px solid #ccc;
+                border-radius: 5px;
+                background-color: white;
+            }
+            QTabBar::tab {
+                background-color: #e0e0e0;
+                padding: 8px 16px;
+                margin-right: 2px;
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+            }
+            QTabBar::tab:selected {
+                background-color: white;
+                border-bottom-color: white;
+            }
+        """)
+
+    def setup_search_area(self):
+        search_layout = QHBoxLayout()
+        
+        # 城市输入
+        self.city_label = QLabel("城市名称:")
+        self.city_label.setFont(QFont("Arial", 10, QFont.Bold))
+        self.city_input = QLineEdit()
+        self.city_input.setPlaceholderText("请输入城市名称（如北京）")
+        self.city_input.returnPressed.connect(self.search_weather)
+        
+        # 搜索按钮
+        self.search_button = QPushButton("查询天气")
+        self.search_button.clicked.connect(self.search_weather)
+        
+        # 添加到布局
+        search_layout.addWidget(self.city_label)
+        search_layout.addWidget(self.city_input, 1)  # 1是伸展因子，让输入框占据更多空间
+        search_layout.addWidget(self.search_button)
+        
+        # 添加到主布局
+        self.main_layout.addLayout(search_layout)
+        
+        # 添加分隔线
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setFrameShadow(QFrame.Sunken)
+        self.main_layout.addWidget(line)
+
+    def search_weather(self):
+        city_name = self.city_input.text().strip()
+        if not city_name:
+            self.statusBar().showMessage("请输入城市名称")
+            return
+        
+        self.statusBar().showMessage(f"正在查询 {city_name} 的天气...")
+        
+        # 获取城市ID
+        city_id, message = get_city_id(city_name)
+        if not city_id:
+            self.statusBar().showMessage(message)
+            return
+        
+        # 更新窗口标题
+        self.setWindowTitle(f"天气查询应用 - {message}")
+        
+        # 获取并显示当前天气
+        self.update_current_weather(city_id)
+        
+        # 获取并显示天气预报
+        self.update_forecast(city_id)
+        
+        self.statusBar().showMessage(f"{message} 天气数据已更新 - {QDateTime.currentDateTime().toString('yyyy-MM-dd hh:mm:ss')}")
+
+    def update_current_weather(self, city_id):
+        weather_data, error = get_weather(city_id)
+        if error:
+            self.statusBar().showMessage(error)
+            return
+        
+        # 获取紫外线指数
+        uv_level, uv_category = get_life_index(city_id, index_type="5")
+        
+        # 清空表格
+        self.weather_table.setRowCount(0)
+        
+        # 添加天气数据
+        weather_items = [
+            ["天气状况", weather_data["text"]],
+            ["温度", f"{weather_data['temp']}°C（体感 {weather_data['feelsLike']}°C）"],
+            ["湿度", f"{weather_data['humidity']}%"],
+            ["风向风力", f"{weather_data['windDir']} {weather_data['windScale']}级"],
+            ["风速", f"{weather_data['windSpeed']} 米/秒"],
+            ["气压", f"{weather_data['pressure']} 百帕"],
+            ["降水量", f"{weather_data['precip']} 毫米"],
+            ["能见度", f"{weather_data['vis']} 公里"],
+            ["云量", f"{weather_data.get('cloud', '未知')}%"],
+            ["紫外线指数", f"{uv_level} ({uv_category})"],
+            ["观测时间", weather_data["obsTime"]]
+        ]
+        
+        self.weather_table.setRowCount(len(weather_items))
+        
+        for row, (item, value) in enumerate(weather_items):
+            self.weather_table.setItem(row, 0, QTableWidgetItem(item))
+            self.weather_table.setItem(row, 1, QTableWidgetItem(value))
+
+    def update_forecast(self, city_id):
+        forecast_data, error = get_3day_forecast(city_id)
+        if error:
+            self.statusBar().showMessage(error)
+            return
+        
+        # 清空表格
+        self.forecast_table.setRowCount(0)
+        
+        # 添加预报数据
+        self.forecast_table.setRowCount(len(forecast_data))
+        
+        for row, day in enumerate(forecast_data):
+            date_item = QTableWidgetItem(day["fxDate"])
+            day_weather = QTableWidgetItem(day["textDay"])
+            night_weather = QTableWidgetItem(day["textNight"])
+            temp_range = QTableWidgetItem(f"{day['tempMin']}°C ~ {day['tempMax']}°C")
+            wind_speed = QTableWidgetItem(f"{day['windDirDay']} {day['windScaleDay']}级 ({day['windSpeedDay']}米/秒)")
+            
+            self.forecast_table.setItem(row, 0, date_item)
+            self.forecast_table.setItem(row, 1, day_weather)
+            self.forecast_table.setItem(row, 2, night_weather)
+            self.forecast_table.setItem(row, 3, temp_range)
+            self.forecast_table.setItem(row, 4, wind_speed)
+
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = WeatherApp()
+    window.show()
+    sys.exit(app.exec_())
