@@ -16,8 +16,3 @@
 - PyQt5 5.15+
 - requests 2.28+
 
-## 安装与使用
-1. 克隆仓库
-```bash
-git clone https://github.com/yourname/WeatherQuery-Qt.git
-cd WeatherQuery-Qt
