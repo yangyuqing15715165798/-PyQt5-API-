@@ -2,6 +2,10 @@
 基于 PyQt5 和和风天气 API 的桌面天气查询工具
 
 ![image](https://github.com/user-attachments/assets/12b6aa29-3795-4296-a529-12358431116a)
+优化后界面：
+![image](https://github.com/user-attachments/assets/b492406e-8c6d-4248-b63f-7376516dec4a)
+![image](https://github.com/user-attachments/assets/8ade196f-09c7-4456-a6b3-eecba5ea46bc)
+![image](https://github.com/user-attachments/assets/fb0de232-24a0-48aa-aa08-95f6b5877133)
 
 
 ## 功能特性
