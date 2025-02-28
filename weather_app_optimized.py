@@ -12,7 +12,7 @@ from PyQt5.QtCore import Qt, QDateTime, QStringListModel, QSize, QTimer
 from PyQt5.QtGui import QFont, QIcon, QPixmap
 
 # API配置
-API_KEY = "ab5a180e018942b78acb7da9cce54721"
+API_KEY = "yourapikey"
 CITY_SEARCH_URL = "https://geoapi.qweather.com/v2/city/lookup"
 WEATHER_URL = "https://devapi.qweather.com/v7/weather/now"
 FORECAST_URL = "https://devapi.qweather.com/v7/weather/3d"
